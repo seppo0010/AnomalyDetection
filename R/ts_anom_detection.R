@@ -264,6 +264,7 @@ AnomalyDetectionTs <- function(x, max_anoms = 0.10, direction = 'pos',
   }
 
   # Cleanup potential duplicates
+  return_all_values <- return_all_values[!duplicated(return_all_values[[1]]), ]
   all_anoms <- all_anoms[!duplicated(all_anoms[[1]]), ]
   seasonal_plus_trend <- seasonal_plus_trend[!duplicated(seasonal_plus_trend[[1]]), ]
 
