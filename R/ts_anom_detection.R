@@ -35,6 +35,7 @@
 #' @param title Title for the output plot.
 #' @param verbose Enable debug messages.
 #' @param na.rm Remove any NAs in timestamps.(default: FALSE) 
+#' @param return_all Return all values, not just anomalies.
 #' @return The returned value is a list with the following components.
 #' @return \item{anoms}{Data frame containing timestamps, values, and optionally expected values.}
 #' @return \item{plot}{A graphical object if plotting was requested by the user. The plot contains
@@ -64,7 +65,7 @@ AnomalyDetectionTs <- function(x, max_anoms = 0.10, direction = 'pos',
                                alpha = 0.05, only_last = NULL, threshold = 'None',
                                e_value = FALSE, longterm = FALSE, piecewise_median_period_weeks = 2, plot = FALSE,
                                y_log = FALSE, xlabel = '', ylabel = 'count',
-                               title = NULL, verbose=FALSE, na.rm = FALSE){
+                               title = NULL, verbose=FALSE, na.rm = FALSE, return_all = FALSE){
 
   # Check for supported inputs types
   if(!is.data.frame(x)){
@@ -214,6 +215,7 @@ AnomalyDetectionTs <- function(x, max_anoms = 0.10, direction = 'pos',
 
   # Create empty data frames to store all anoms and seasonal+trend component from decomposition
   all_anoms <- data.frame(timestamp=numeric(0), count=numeric(0))
+  return_all_values <- data.frame(timestamp=numeric(0), count=numeric(0))
   seasonal_plus_trend <- data.frame(timestamp=numeric(0), count=numeric(0))
 
   # Detect anomalies on all data (either entire data in one-pass, or in 2 week blocks if longterm=TRUE)
@@ -257,6 +259,7 @@ AnomalyDetectionTs <- function(x, max_anoms = 0.10, direction = 'pos',
       anoms <- subset(anoms, anoms[[2]] >= thresh)
     }
     all_anoms <- rbind(all_anoms, anoms)
+    return_all_values <- rbind(return_all_values, all_data[[i]])
     seasonal_plus_trend <- rbind(seasonal_plus_trend, data_decomp)
   }
 
@@ -341,9 +344,18 @@ AnomalyDetectionTs <- function(x, max_anoms = 0.10, direction = 'pos',
 
   # Fix to make sure date-time is correct and that we retain hms at midnight
   all_anoms[[1]] <- format(all_anoms[[1]], format="%Y-%m-%d %H:%M:%S")
+  return_all_values[[1]] <- format(return_all_values[[1]], format="%Y-%m-%d %H:%M:%S")
   
   # Store expected values if set by user
-  if(e_value) {
+  if(return_all) {
+    if(e_value) {
+      anoms <- data.frame(timestamp=return_all_values[[1]], anoms=return_all_values[[2]], 
+                          expected_value=subset(seasonal_plus_trend[[2]], as.POSIXlt(seasonal_plus_trend[[1]], tz="UTC") %in% return_all_values[[1]]),
+                          stringsAsFactors=FALSE)
+    } else {
+      anoms <- data.frame(timestamp=return_all_values[[1]], anoms=return_all_values[[2]], stringsAsFactors=FALSE)
+    }
+  } else if(e_value) {
     anoms <- data.frame(timestamp=all_anoms[[1]], anoms=all_anoms[[2]], 
                         expected_value=subset(seasonal_plus_trend[[2]], as.POSIXlt(seasonal_plus_trend[[1]], tz="UTC") %in% all_anoms[[1]]),
                         stringsAsFactors=FALSE)
